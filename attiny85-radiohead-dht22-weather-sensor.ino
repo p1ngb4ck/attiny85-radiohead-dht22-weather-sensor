@@ -187,8 +187,6 @@ void setup() {
 void loop() {
   // turn on the LED
   digitalWrite(LED_PIN, HIGH);
-
-  humidity_check();
   
   // temperature and humidity
   float t = 0;
