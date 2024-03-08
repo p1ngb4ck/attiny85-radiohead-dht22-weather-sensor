@@ -32,10 +32,10 @@
 #define RH_PTT_PIN 5 // not used, set to a non-existens pin
 
 // time until the watchdog wakes the mc in seconds
-#define WATCHDOG_TIME 8 // 1, 2, 4 or 8
+#define WATCHDOG_TIME 1 // 1, 2, 4 or 8
 
 // after how many watchdog wakeups we should collect and send the data
-#define WATCHDOG_WAKEUPS_TARGET 7 // 8 * 7 = 56 seconds between each data collection
+#define WATCHDOG_WAKEUPS_TARGET 60 // 8 * 7 = 56 seconds between each data collection
 
 // after how many data collections we should get the battery status
 #define BAT_CHECK_INTERVAL 30
