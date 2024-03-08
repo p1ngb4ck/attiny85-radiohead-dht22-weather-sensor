@@ -37,13 +37,6 @@
 // after how many watchdog wakeups we should collect and send the data
 #define WATCHDOG_WAKEUPS_TARGET 60 // 8 * 7 = 56 seconds between each data collection
 
-// after how many data collections we should get the battery status
-#define BAT_CHECK_INTERVAL 30
-
-// min max values for the ADC to calculate the battery percent
-#define BAT_ADC_MIN 40  // ~0,78V
-#define BAT_ADC_MAX 225 // ~4,41V
-
 /**************
  * end config *
  **************/
@@ -52,10 +45,6 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <util/delay.h>
-
-#if BAT_ADC_MIN >= BAT_ADC_MAX
-  #error BAT_ADC_MAX must be greater than BAT_ADC_MIN!
-#endif
 
 // DHT22 lib
 // not using the current adafruit dht library, because it eats too many memory
@@ -70,8 +59,8 @@ dht22 dht;
 //   rh_buf[1-4] - temperature as float
 //   rh_buf[5-8] - humidity as float
 // control byte 0x02
-//   rh_buf[1] - battery status in %
-//   rh_buf[2] - battery raw ADC value (0 to 255)
+//   rh_buf[1] - barometric pressure in %
+//   rh_buf[2] - raw barometric pressure sensor value (0 to 255)
 // control byte 0xEE
 //   error reading temperature/humidity
 #define RH_BUF_LEN 9
@@ -95,9 +84,6 @@ RHDatagram rh_manager(rh_driver, RH_OWN_ADDR);
 
 // header ID for the RadioHead message
 uint8_t rh_id = 0;
-
-// counter for the battery check, starting at BAT_CHECK_INTERVAL to transmit the battery status on first loop
-uint8_t bat_check_count = BAT_CHECK_INTERVAL;
 
 void enableWatchdog()
 {
@@ -202,13 +188,8 @@ void loop() {
   // turn on the LED
   digitalWrite(LED_PIN, HIGH);
 
-  // battery check/status
-  bat_check_count++;
-  if(bat_check_count >= BAT_CHECK_INTERVAL){
-    bat_check();
-    bat_check_count = 0;
-  }
-
+  humidity_check();
+  
   // temperature and humidity
   float t = 0;
   float h = 0;
@@ -238,46 +219,6 @@ void loop() {
   for(uint8_t i=0;i < WATCHDOG_WAKEUPS_TARGET;i++){
     enterSleep();
   }
-}
-
-// function to read and send the battery status
-void bat_check(){
-  // enable the ADC
-  ADCSRA |= (1<<ADEN);
-
-  // short delay
-  _delay_ms(10);
-
-  ADCSRA |= (1 << ADSC); // start ADC measurement
-  while ( ADCSRA & (1 << ADSC) ); // wait till conversion complete
-  
-  int16_t adc = ADCH;
-
-  // clear the ADIF bit by writing 1 to it
-  ADCSRA|=(1<<ADIF);
-
-  // disable the ADC
-  ADCSRA &= ~(1<<ADEN);
-
-  // write the raw value into the buffer
-  rh_buf[2] = adc;
-  
-  // calc the battery status in percent, respecting min and max
-  adc = 100 * ( adc - BAT_ADC_MIN ) / (BAT_ADC_MAX - BAT_ADC_MIN);
-  if(adc > 100){
-    adc = 100;
-  }else if(adc < 0){
-    adc = 0;
-  }
-
-  // write it into the buffer
-  rh_buf[1] = adc;
-
-  // set command byte to 0x02 for battery status
-  rh_buf[0] = 0x02;
-
-  // send 3 bytes from the buffer
-  rh_send(3);
 }
 
 // function to send RadioHead messages from the buffer
